@@ -11,12 +11,13 @@
 #include "fft-complex.h"
 
 #define DEFAULT_SAMPLE_RATE	1920000
-#define TIME_CONSTANT 0.000050
+#define TIME_CONSTANT 0.000075
 #define FREQ_DEVIATION  75000
 #define PI 3.141592653589793
 #define NUM_SAMPLES 4800000
 #define BUF_LENGHT  4096
 #define DECIMATION_FACTOR 8
+#define TAU 0.000075
 
 #define COUNT       NUM_SAMPLES/BUF_LENGHT
 
@@ -35,6 +36,32 @@ void RC_filter(double* input, double* output, int points)
         //printf("%f\n", output[i]);
     } 
 }   
+
+void IIRFloat(double *coeffs_B, double *coeffs_A, double *input, double *output, int length, int filterLength)
+{
+    double bcc, acc;
+    double *inputp;
+    int n,k;
+
+
+    for (int ii=0; ii<filterLength; ii++)
+    {
+        output[ii] = 0;
+    }
+
+    //filter length =7
+    for (n = 0; n < length; n++) {
+        inputp = &input[filterLength - 1 + n]; //insamp[6]~insamp[85]
+
+        acc = 0;
+        bcc = 0;
+
+        for (k = 0; k < filterLength; k++)
+        {
+            output[n] += (coeffs_B[k] * inputp[filterLength - k - 1] - coeffs_A[k] * output[filterLength - k - 1]);
+        }
+    }
+}
 
 
 int main(){
@@ -60,6 +87,18 @@ int main(){
     sf_info.seekable = 0;
 
     SNDFILE* file_snd = sf_open("audio.wav", SFM_WRITE, &sf_info);
+
+    double w_c = 1 /TAU;
+
+    // Prewarped analog corner frequency
+    double w_ca = 2.0 * (DEFAULT_SAMPLE_RATE/8) * tan(w_c / (2.0 * (DEFAULT_SAMPLE_RATE/8)));
+    double kk = -w_ca / (2.0 * (DEFAULT_SAMPLE_RATE/8));
+    double z1 = -1.0;
+    double p1 = (1.0 + kk) / (1.0 - kk);
+    double b0 = -kk / (1.0 - kk);
+
+    double btaps[2] = { b0 * 1, b0 * -z1 };
+    double ataps[2] = {      1,      -p1 };
 
 
 
@@ -108,6 +147,9 @@ int main(){
     }
 
     RC_filter(demodulated_samples, deEmphased_samples, (NUM_SAMPLES/DECIMATION_FACTOR));
+    //IIRFloat(btaps, ataps, demodulated_samples, deEmphased_samples, (NUM_SAMPLES/DECIMATION_FACTOR), 2);
+
+    //low_pass2(deEmphased_samples, (NUM_SAMPLES/DECIMATION_FACTOR));
 
     //return 0;
 
@@ -126,7 +168,7 @@ int main(){
 
 
     for(i=0, j=0; i<(NUM_SAMPLES/DECIMATION_FACTOR);  j++){
-        decimated_samples[j] = (float) deEmphased_samples[i];
+        decimated_samples[j] = (float) deEmphased_samples[i] + 0.8;
         fwrite(&decimated_samples[j], 4 , 1,  fout2);
         printf("%f\n", decimated_samples[j]);
         i = i+5;
