@@ -1,8 +1,10 @@
 #include <math.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include "fft-complex.h"
+#include <complex.h>
 
 
 // Private function prototypes
@@ -165,4 +167,77 @@ static void *memdup(const void *src, size_t n) {
 	if (n > 0 && dest != NULL)
 		memcpy(dest, src, n);
 	return dest;
+}
+
+bool FFT_plot(double vec[], size_t n, const int BUF_LENGHT){
+
+	if(n < BUF_LENGHT){
+		return false;
+	}
+
+	int cnt=n,i,j,k;
+	double complex *samples;
+	double complex *IQ_BUF;
+	double *average = malloc(BUF_LENGHT * sizeof(double));
+	FILE* out = fopen("output.dat", "w");
+	FILE* gp1 = popen("gnuplot -persist", "w");
+
+	if(n%BUF_LENGHT != 0){
+		cnt=n+1;
+		while (cnt%BUF_LENGHT != 0)
+		{
+			cnt++;
+		}
+		samples = malloc(cnt * sizeof(double complex));
+		memset( samples, 0, sizeof(cnt * sizeof(double complex)));
+	}
+	else{
+		samples = malloc(n * sizeof(double complex));
+		memset( samples, 0, sizeof(n * sizeof(double complex)));
+	}
+
+	for ( i = 0; i < n; i++)
+	{
+		samples[i] = vec[i] + 0 * I;
+		//printf("%f\n", vec[i]);
+	}
+
+	int nBlocks = (int) cnt/BUF_LENGHT;
+
+	for (i=0, IQ_BUF = (samples + i*BUF_LENGHT*sizeof(double complex)); i < 1; i++)
+	{
+		for(j=0; j<BUF_LENGHT; j++){
+			printf("%f\n",creal(IQ_BUF[j]));
+		}
+
+		//printf("\n");
+
+		if(!Fft_transform(IQ_BUF, BUF_LENGHT, false)){
+			return false;
+		}
+		for (k = 0; k < BUF_LENGHT; k++)
+		{
+			average[k] = average[k] + cabs(IQ_BUF[k]);
+			printf("%f - ", average[k]);
+		}
+
+		printf("\n----------------------\n");
+		
+		if (i == nBlocks - 1)
+		{
+			average[k] = average[k] / nBlocks;
+		}
+	}
+
+	for(i=0; i<BUF_LENGHT;i++){
+		//printf("%f\n", average[i]);
+		fwrite(&average[i], 4,1,out);
+	}
+	free(samples);
+	free(average);
+
+	fclose(out);
+	fprintf(gp1, "plot [0:%d] 'output.dat' w filledcurve x1 lw 2 lc 'red'\n", BUF_LENGHT);
+	pclose(gp1);
+	return true;
 }

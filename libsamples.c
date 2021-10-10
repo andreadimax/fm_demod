@@ -74,7 +74,7 @@ int verbose_device_search(char *s)
 	return -1;
 }
 
-static void rtlsdr_callback(unsigned char *buf, uint32_t len, void* ctx)
+static void rtlsdr_callback(uint8_t *buf, uint32_t len, void* ctx)
 {
 	if (ctx) {
 		if (do_exit){
@@ -97,7 +97,7 @@ static void rtlsdr_callback(unsigned char *buf, uint32_t len, void* ctx)
 		
 
 		for(i=0;i<len;i++,j++){
-			data[j] = buf[i];
+			*(data + j*sizeof(uint8_t)) = *(buf + i*sizeof(uint8_t));
 			//fprintf(stdout, "%c - %c\n", data[j], buf[i]);
 		}
 
@@ -111,12 +111,12 @@ unsigned char *read_samples(const int number_of_samples)
 {
 	int r;
 	int firstTime = 1;
-	int gain = 4;
+	int gain = 20;
 	int ppm_error = 0;
 	int sync_mode = 0;
 	int dev_index = 0;
 	int dev_given = 0;
-	uint32_t frequency = 99200000;
+	uint32_t frequency = 99.9e6;
 	uint32_t samp_rate = DEFAULT_SAMPLE_RATE;
 	uint32_t out_block_size = DEFAULT_BUF_LENGTH;
 
@@ -150,9 +150,10 @@ unsigned char *read_samples(const int number_of_samples)
 
 	/* Device setting */
 
-	rtlsdr_set_sample_rate(dev, samp_rate);
-	rtlsdr_set_center_freq(dev, frequency);
-	rtlsdr_set_tuner_gain_mode(dev, 0);
+	rtlsdr_set_sample_rate(dev, DEFAULT_SAMPLE_RATE);
+	rtlsdr_set_center_freq(dev, 99.9e6);
+	rtlsdr_set_tuner_gain_mode(dev, 1);
+	if(rtlsdr_set_tuner_gain(dev, 400) == 1){printf("error in setting gain\n"); exit(-1);}
 	rtlsdr_set_freq_correction(dev, ppm_error);
     r = rtlsdr_reset_buffer(dev);
 

@@ -62,6 +62,7 @@ bool Fft_transformBluestein(double complex vec[], size_t n, bool inverse);
  * Returns true if successful, false otherwise (out of memory).
  */
 bool Fft_convolve(const double complex xvec[], const double complex yvec[], double complex outvec[], size_t n);
+bool FFT_plot(double vec[], size_t n, const int BUF_LENGHT);
 
 
 #ifdef __cplusplus
