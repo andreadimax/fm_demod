@@ -7,7 +7,7 @@
 
 #include <string.h>
 
-#define ORDER 311
+#define ORDER 64
 #define ORDER2 311
 #define PI 3.141592653589793
 
@@ -649,6 +649,7 @@ double coeffs2[ORDER2] = {
     0.000062860365070682
 };
 
+
 int low_pass( double *input, double* output, int length)
 {
     // const int totalLenght = (length + (ORDER-1));
@@ -673,13 +674,25 @@ int low_pass( double *input, double* output, int length)
     int n;
     int k;
 
-    FILE* rf2 = fopen("rf2.dat", "wb");
+    double *coeffs = (double *) malloc(ORDER * sizeof(double));
+    int i;
+    FILE* file_coeffs = fopen("coefficients.txt", "r");
+
+    for (i = 0; i < ORDER; i++)
+    {
+        fscanf(file_coeffs, "%lf", &coeffs[i]);
+        //printf( "%lf\n",coeffs[i]);
+    }
+
+    fclose(file_coeffs);
+
+    //FILE* rf2 = fopen("rf2.dat", "wb");
 
     for ( n = 0; n < length; n++ ) {
-        input[n] = input[n] * cexp(-2.0 * PI * I * (300000)/(1920000) * (n+1) );
-        fwrite(&input[n], 4,1,rf2);
+        input[n] = input[n] * cexp(-2.0 * PI * I * (250000)/(2000000) * (n) );
+        //fwrite(&input[n], 4,1,rf2);
     }
-    fclose(rf2);
+    //fclose(rf2);
  
     // apply the filter to each input sample
     for ( n = 0; n < length; n++ ) {
@@ -690,7 +703,7 @@ int low_pass( double *input, double* output, int length)
                 acc += 0;
             }
             else{
-                acc += coeffs1[k] * input[n-k];
+                acc += coeffs[k] * input[n-k];
             }
         }
         output[n] = acc;

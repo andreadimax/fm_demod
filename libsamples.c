@@ -5,7 +5,7 @@
 #include <inttypes.h>
 #include "libsamples.h"
 
-#define DEFAULT_SAMPLE_RATE		1920000
+#define DEFAULT_SAMPLE_RATE		2000000
 #define DEFAULT_BUF_LENGTH		(16 * 16384)
 #define MINIMAL_BUF_LENGTH		512
 #define MAXIMAL_BUF_LENGTH		(256 * 16384)
@@ -116,7 +116,7 @@ unsigned char *read_samples(const int number_of_samples)
 	int sync_mode = 0;
 	int dev_index = 0;
 	int dev_given = 0;
-	uint32_t frequency = 99.9e6;
+	uint32_t frequency = 90e6 - 250000;
 	uint32_t samp_rate = DEFAULT_SAMPLE_RATE;
 	uint32_t out_block_size = DEFAULT_BUF_LENGTH;
 
@@ -151,7 +151,7 @@ unsigned char *read_samples(const int number_of_samples)
 	/* Device setting */
 
 	rtlsdr_set_sample_rate(dev, DEFAULT_SAMPLE_RATE);
-	rtlsdr_set_center_freq(dev, 99.9e6);
+	rtlsdr_set_center_freq(dev, frequency);
 	rtlsdr_set_tuner_gain_mode(dev, 1);
 	if(rtlsdr_set_tuner_gain(dev, 400) == 1){printf("error in setting gain\n"); exit(-1);}
 	rtlsdr_set_freq_correction(dev, ppm_error);

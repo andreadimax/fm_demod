@@ -9,13 +9,13 @@
 #include "low_pass.h"
 #include "fft-complex.h"
 
-#define DEFAULT_SAMPLE_RATE	1920000
+#define DEFAULT_SAMPLE_RATE	2000000
 #define TIME_CONSTANT 0.000050
 #define FREQ_DEVIATION  75000
 #define PI 3.141592653589793
 #define NUM_SAMPLES 4800000
 #define BUF_LENGHT  4096
-#define DECIMATION_FACTOR 8
+#define DECIMATION_FACTOR (DEFAULT_SAMPLE_RATE/200000)
 #define TAU 0.000075
 
 #define COUNT       NUM_SAMPLES/BUF_LENGHT
@@ -23,14 +23,21 @@
 int filedes[2];
 
 
-void RC_filter(double* input, double* output, int points, double alpha) 
+void RC_filter(double* input, double* output, int length, int Fs) 
 {
-    output[0] = input[0];
-    for(int i = 1; i < points; ++i) 
-    {  
-        output[i] = output[i-1] + (alpha*(input[i] - output[i-1])); 
-        //printf("%f\n", output[i]);
-    } 
+    double d = Fs * TIME_CONSTANT;
+    double x = exp(-1/d);
+    double a1 = -x;
+    double b = 1 - x;
+    int n;
+    for ( n = 0; n < length; n++ ) {
+        if(n-1 < 0){
+            output[n] = input[n] * b;
+        }
+        else{
+            output[n] = input[n] * b - output[n-1] * a1;
+        }
+    }
 
     // output[0] = input[0];
     // for(int i = 1; i < points; ++i) 
@@ -74,11 +81,10 @@ int main(){
     double complex *IQ_BUF = malloc((NUM_SAMPLES/DECIMATION_FACTOR) * sizeof(double complex));
     double *average = calloc((BUF_LENGHT), sizeof(double));
     double *filtered = malloc(2*NUM_SAMPLES*sizeof(double));
-    double *demodulated_samples = malloc((NUM_SAMPLES/DECIMATION_FACTOR)* sizeof(double));
-    double *deEmphased_samples = malloc((NUM_SAMPLES/DECIMATION_FACTOR)* sizeof(double));
+    double *demodulated_samples = malloc((NUM_SAMPLES/((int)DECIMATION_FACTOR))* sizeof(double));
+    double *deEmphased_samples = malloc((NUM_SAMPLES/((int)DECIMATION_FACTOR))* sizeof(double));
     double *deEmphased_samples2 = malloc((NUM_SAMPLES/(DECIMATION_FACTOR*5))* sizeof(double));
     double *deEmphased_samples3 = malloc((NUM_SAMPLES/(DECIMATION_FACTOR*5))* sizeof(double));
-    float *decimated_samples = malloc(((NUM_SAMPLES/DECIMATION_FACTOR)/5) * sizeof(float));
     double *d_samples = malloc(2*NUM_SAMPLES*sizeof(double));
     FILE* fout1 = fopen("IQdata.dat", "w");
     FILE* fout2 = fopen("audio.raw", "wb");
@@ -136,17 +142,24 @@ int main(){
     //     fprintf(fout1, "%f\n", d_samples[j]); 
     // }
 
+    int dec_fact = (int) DECIMATION_FACTOR;
+
+    int new_samp_rate = DEFAULT_SAMPLE_RATE/ dec_fact;
+
+    int new_samples = NUM_SAMPLES/dec_fact;
+    
+
     
 
     for(i=0,j=0;i<(NUM_SAMPLES*2);j++){
         IQ_BUF[j] = filtered[i] + filtered[i+1] * I;
         
-        i= i+16;
+        i= i+(dec_fact * 2);
 
         //printf("%d\n", j);
 
         if(j>1){
-            demodulated_samples[j-1] = carg(IQ_BUF[j] * conj(IQ_BUF[j-1])) * (((DEFAULT_SAMPLE_RATE)/DECIMATION_FACTOR)/(2*PI*FREQ_DEVIATION)) ;
+            demodulated_samples[j-1] = carg(IQ_BUF[j] * conj(IQ_BUF[j-1])) ;
             //printf("%d - %f\n", j-1,  demodulated_samples[j-1]);
             fprintf(demodulated, "%f\n", demodulated_samples[j-1]);
         }
@@ -168,23 +181,26 @@ int main(){
         //printf("%d\n", j);
     }
 
-    RC_filter(demodulated_samples, deEmphased_samples, (NUM_SAMPLES/DECIMATION_FACTOR), alpha);
+    
 
-    for (int i = 0; i < (NUM_SAMPLES/DECIMATION_FACTOR); i++)
-    {
-        fprintf(first_filtered, "%f\n", deEmphased_samples[i]);
-    }
+    RC_filter(demodulated_samples, deEmphased_samples, new_samples,new_samp_rate);
 
-    for (int i = 0, j=0; i < (NUM_SAMPLES/DECIMATION_FACTOR); j++)
-    {
-        deEmphased_samples2[j] = deEmphased_samples[i];
-        i = i+ 5;
-    }
+    // for (int i = 0; i < (NUM_SAMPLES/DECIMATION_FACTOR); i++)
+    // {
+    //     fprintf(first_filtered, "%f\n", deEmphased_samples[i]);
+    // }
+
+    // for (int i = 0, j=0; i < (NUM_SAMPLES/DECIMATION_FACTOR); j++)
+    // {
+    //     deEmphased_samples2[j] = deEmphased_samples[i];
+    //     i = i+ 5;
+    // }
+    
     
     
 
     //RC_filter(deEmphased_samples, deEmphased_samples2, (NUM_SAMPLES/DECIMATION_FACTOR), alpha2);
-    low_pass2(deEmphased_samples2, deEmphased_samples3, (NUM_SAMPLES/(DECIMATION_FACTOR*5)));
+    //low_pass2(deEmphased_samples2, deEmphased_samples3, (NUM_SAMPLES/(DECIMATION_FACTOR*5)));
     //IIRFloat(btaps, ataps, demodulated_samples, deEmphased_samples, (NUM_SAMPLES/DECIMATION_FACTOR), 2);
 
     //low_pass2(deEmphased_samples, (NUM_SAMPLES/DECIMATION_FACTOR));
@@ -207,13 +223,24 @@ int main(){
     // if(!FFT_plot(deEmphased_samples2, (NUM_SAMPLES/DECIMATION_FACTOR), 4096)){
     //     printf("Error in plot\n");
     // }
+    printf("%da\n", new_samples);
+
+    dec_fact = (int) new_samp_rate/48000;
+    new_samples = new_samples / dec_fact;
+    float *decimated_samples = malloc( new_samples * sizeof(float));
+
+    printf("%da\n", new_samples);
+   
 
 
-    for(i=0; i<(NUM_SAMPLES/(DECIMATION_FACTOR*5));  i++){
-        decimated_samples[i] = (float) deEmphased_samples3[i];
-        fwrite(&decimated_samples[i], 4 , 1,  fout2);
-        fprintf(out2, "%f\n", decimated_samples[i]);
-        //printf("%f\n", decimated_samples[j]);
+
+
+    for (int i = 0, j=0; i < new_samples * dec_fact; j++){
+        decimated_samples[j] = (float) deEmphased_samples[i];
+        fwrite(&decimated_samples[j], 4 , 1,  fout2);
+        fprintf(out2, "%f\n", decimated_samples[j]);
+        i = i + dec_fact;
+        //printf("%d - %d\n", i,j);
     }
 
     //sf_write_float(file_snd, decimated_samples, (sf_count_t) (NUM_SAMPLES/DECIMATION_FACTOR)/5 );
