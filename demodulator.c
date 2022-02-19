@@ -5,7 +5,6 @@
 #include <string.h>
 #include <inttypes.h>
 #include <complex.h>
-#include <sndfile.h>
 #include "libsamples.h"
 #include "low_pass.h"
 #include "fft-complex.h"
@@ -87,16 +86,16 @@ int main(){
     FILE* demodulated = fopen("demodulated.txt", "w");
     FILE* out2 = fopen("out2.txt", "w");
     FILE* rf = fopen("rf.dat", "wb");
-    SF_INFO sf_info;
+    // SF_INFO sf_info;
 
-    sf_info.channels=1;
-    sf_info.samplerate = 48000;
-    sf_info.frames = (sf_count_t) ((NUM_SAMPLES/DECIMATION_FACTOR)/5);
-    sf_info.format = (SF_FORMAT_WAV | SF_FORMAT_FLOAT);
-    sf_info.sections = 0;
-    sf_info.seekable = 0;
+    // sf_info.channels=1;
+    // sf_info.samplerate = 48000;
+    // sf_info.frames = (sf_count_t) ((NUM_SAMPLES/DECIMATION_FACTOR)/5);
+    // sf_info.format = (SF_FORMAT_WAV | SF_FORMAT_FLOAT);
+    // sf_info.sections = 0;
+    // sf_info.seekable = 0;
 
-    SNDFILE* file_snd = sf_open("audio.wav", SFM_WRITE, &sf_info);
+    // SNDFILE* file_snd = sf_open("audio.wav", SFM_WRITE, &sf_info);
 
     double w_c = 1 /TAU;
 
@@ -224,7 +223,7 @@ int main(){
     // }
 
 
-    sf_close(file_snd);
+    //sf_close(file_snd);
 
     fclose(fout2);
     fclose(rf);
