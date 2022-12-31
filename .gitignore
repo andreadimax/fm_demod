@@ -1,10 +1,4 @@
-IQdata.dat
-audio.wav
+build
+.vscode
+debug
 audio.raw
-sp1
-sp1
-rf2.dat
-rf.dat
-out2.txt
-first_filtered.txt
-demodulated.txt
