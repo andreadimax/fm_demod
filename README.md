@@ -33,3 +33,7 @@ I worked and tested it with Ubuntu 20.04 and 22.04.
 
 # Useful resources from which I took inspiration
 
+- [Capture and decode FM radio](https://witestlab.poly.edu/blog/capture-and-decode-fm-radio/)
+- [How to capture raw IQ data from a RTL-SDR dongle and FM demodulate with MATLAB](https://www.aaronscher.com/wireless_com_SDR/RTL_SDR_AM_spectrum_demod.html)
+- [Site to project FIR low pass filter](https://fiiir.com/)
+- Book: *Digital Signal Processing 101: Everything You Need to Know to Get Started, Michael Parker, 2010*
