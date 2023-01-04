@@ -22,6 +22,8 @@ I worked and tested it with Ubuntu 20.04 and 22.04.
     mkdir build && cd build
     cmake ..
     ./fm_demod
+    make
+    aplay audio.raw -r 48000 -f FLOAT_LE -t raw -c 1
 
 # Steps
 
