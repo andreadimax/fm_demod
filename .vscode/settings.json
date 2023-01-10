@@ -1,6 +1,14 @@
 {
     "files.associations": {
         "math.h": "c",
-        "rtl-sdr.h": "c"
+        "rtl-sdr.h": "c",
+        "get_samples.h": "c",
+        "stdlib.h": "c",
+        "cstring": "c",
+        "variant": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "inttypes.h": "c"
     }
 }

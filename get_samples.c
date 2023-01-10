@@ -108,10 +108,6 @@ static void rtlsdr_callback(uint8_t *buf, uint32_t len, void* ctx)
 			firstCall = 0;
 		}	
 
-        //Copying data
-        // for(;i<len;i++){
-		// 	*(data + i*sizeof(uint8_t)) = *(buf + i*sizeof(uint8_t));
-		// }
 		memcpy(usr_buf,buf,len);
 		usr_buf = usr_buf + len * sizeof(uint8_t);
 
