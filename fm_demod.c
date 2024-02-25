@@ -229,7 +229,7 @@ static void *read_samples(const uint32_t number_of_samples, uint8_t* samples, st
 		rtlsdr_set_freq_correction(dev, dp->ppm_error);
 		r = rtlsdr_reset_buffer(dev);
 
-		firstCall = 0;
+	
 	}
 
 	/* Reading samples */
@@ -332,7 +332,7 @@ void *main_thread(void *arg){
 	float  *deEmphased_samples = malloc((NUM_SAMPLES/8)* sizeof(double));
 	float complex *decims = (float complex *) malloc(NUM_SAMPLES/8 * sizeof(float complex));
 	uint8_t* samples = malloc((NUM_SAMPLES * 2) * sizeof(uint8_t));
-	int i,j,counter = 0;
+	int i,j,counter = 0, cc = 0;
 
 	float d = (DEFAULT_SAMPLE_RATE/8) * 50e-6 ; //for Europe 50e-6, for America 75e-6
     float xx = exp(-1/d);
@@ -345,12 +345,18 @@ void *main_thread(void *arg){
 	dp.gain = 0;
     dp.ppm_error = 0;
     dp.sync_mode = 0;
-    dp.frequency = 100.4e6;
+    dp.frequency = 91.8e6;
     dp.samp_rate = DEFAULT_SAMPLE_RATE;
 	clock_t start, end;
     double cpu_time_used;
+
+	while (counter++ <= 1)
+	{
 	
-	pthread_mutex_lock(&(sd->mutex));
+	if (firstCall)
+	{
+		pthread_mutex_lock(&(sd->mutex));
+	}
 
 	start = clock();
 
@@ -390,22 +396,31 @@ void *main_thread(void *arg){
         i = i+ 5;
     }
 
-	memcpy(sd->samples[0], deEmphased_samples, NUM_SAMPLES/(8*5)*4);
+	memcpy(sd->samples[cc], deEmphased_samples, NUM_SAMPLES/(8*5)*4);
+	printf("Written in %p", sd->samples[cc]);	
 
 	end = clock();
 	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
 
 	printf("Time elapsed: %f\n", cpu_time_used);
 
-	FILE* samples_saved = fopen("audio.raw", "wb");
+	// FILE* samples_saved = fopen("audio.raw", "wb");
 
-	for(i=0; i<((NUM_SAMPLES)/(8*5));  i++){
-        fwrite(&deEmphased_samples[i], 4 , 1,  samples_saved);
-    }
+	// for(i=0; i<((NUM_SAMPLES)/(8*5));  i++){
+    //     fwrite(&deEmphased_samples[i], 4 , 1,  samples_saved);
+    // }
 
-	fclose(samples_saved);
+	// fclose(samples_saved);
 
-	sd->index = 0;
+	sd->index = cc++;
+
+	if (firstCall)
+	{
+		firstCall = 0;
+	}
+
+
+	}
 
 	pthread_mutex_unlock(&(sd->mutex));
 
@@ -417,9 +432,13 @@ void *main_thread(void *arg){
 	free(y1);
 	free(samples);
 
+	printf("Ok\n");
+
 }
 
 static int remaining = 48000;
+static int ccc = 0;
+static int firstCall1 =1;
 static float* point = NULL;
 
 static int patestCallback( const void *inputBuffer, void *outputBuffer,
@@ -434,6 +453,13 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
     unsigned int i,j;
     (void) inputBuffer; /* Prevent unused variable warning. */
 
+	if (firstCall1)
+	{
+		pthread_mutex_lock(&(sd->mutex));
+		pthread_mutex_unlock(&(sd->mutex));
+		point = sd->samples[ccc];
+		firstCall1 = 0;
+	}
 
 	while (remaining > 0)
 	{
@@ -444,6 +470,10 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
 				*out++ = *point;
 				*out++ = *point++;
 			}
+
+			remaining = 48000 + FRAMES_PER_BUFFER;
+			point = sd->samples[++ccc];
+			printf("Termintaed\n");
 		}
 		else{
 			for (i = 0; i < FRAMES_PER_BUFFER; i++)
@@ -451,6 +481,8 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
 				*out++ = *point;
 				*out++ = *point++;
 			}
+
+			printf("NotTermintaed\n");
 		}
 
 		remaining -= FRAMES_PER_BUFFER;
@@ -460,6 +492,7 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
 	}	
 
 	printf("Completed!\n");
+	
     
     return paComplete;
 }
@@ -493,10 +526,10 @@ void *play_thread(void* arg){
                                    patestCallback,
                                    sd );
 	pthread_mutex_lock(&(sd->mutex));
-	point = sd->samples[0];
+	//point = sd->samples[0];
 	pthread_mutex_unlock(&(sd->mutex));
 	Pa_StartStream( stream );
-	Pa_Sleep(3*1000);
+	Pa_Sleep(6*1000);
 	Pa_StopStream( stream );
 	Pa_CloseStream( stream );
 	Pa_Terminate();

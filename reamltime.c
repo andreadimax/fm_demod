@@ -1,11 +1,28 @@
-#include "get_samples.h"
-
+#include <stdio.h>
+#include <rtl-sdr.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include "chan.h"
 #include <signal.h>
 
 #define DEFAULT_SAMPLE_RATE		1920000
 #define DEFAULT_BUF_LENGTH		(16 * 16384)
 #define MINIMAL_BUF_LENGTH		512
 #define MAXIMAL_BUF_LENGTH		(256 * 16384)
+
+struct dongle_parameters{
+    int gain;
+	int ppm_error;
+	int sync_mode;
+	int dev_index;
+	int dev_given;
+	uint32_t frequency;
+	uint32_t samp_rate;
+	//uint32_t out_block_size;
+};
+
+chan_t* channel;
 
 
 static rtlsdr_dev_t *dev = NULL; // pointer to the dongle
@@ -17,6 +34,8 @@ void sig_handler(int signum){
 
 	printf("Read signal!");
 	rtlsdr_cancel_async(dev);
+
+    chan_close(channel);
 
 	return;
 }
@@ -114,47 +133,47 @@ static void rtlsdr_callback(uint8_t *buf, uint32_t len, void* ctx)
 
 		printf("Len %d\n", len);
 
-		// if (firstCall)
-		// {
-		// 	usr_buf = (uint8_t *) ctx;
-		// 	firstCall = 0;
-		// }	
-
-		// memcpy(usr_buf,buf,len);
-		// usr_buf = usr_buf + len * sizeof(uint8_t);
-
-		// bytes_to_read -= len;
-
-		// if (bytes_to_read  == 0)
-		// {
-		// 	rtlsdr_cancel_async(dev);
-		// 	return;
-		// }		
-
-		// for (uint32_t i = 0; i < len; i++)
-		// {
-		// 	printf("%c ", buf[i]);
-		// }
-
-		// printf("\n");
-		
+		for (int i = 0; i < len; i++)
+        {
+            printf("Should print %c\n", buf[i]);
+            chan_send(channel, (void *) (uintptr_t) buf[i]);
+        }
+        		
 
 		return;
         
 	}
 }
 
-/**
- * @brief API exposed to rest of the program to get the samples
- * 
- * @param number_of_samples 
- * @param dp Data structure with dongle parameters
- * @return An array dynamicall allocated of (number_of_samples*2) unsigned char* samples
- */
-unsigned char *read_samples(const uint32_t number_of_samples, struct dongle_parameters* dp)
+void *receiver(void* chan){
+
+    void *data;
+
+    while (chan_recv((chan_t*) chan, &data) == 0)
+    {
+        printf("Received %c\n", (uint8_t) data);
+    }
+
+    printf("Receiver ending...\n");
+
+}
+
+
+int main()
 {
 
-    if (dp == NULL)
+
+    //initializing dongle parameters
+    struct dongle_parameters *dp = malloc(sizeof(struct dongle_parameters));
+    dp->gain = 0;
+    dp->ppm_error = 0;
+    dp->sync_mode = 0;
+    dp->frequency = 91.8e6;
+    dp->samp_rate = DEFAULT_SAMPLE_RATE;
+
+    channel = chan_init(0);
+
+    if (dp == NULL || channel == NULL)
     {
         printf("Error: dongle parameters not initialized!\n");
         exit(1);
@@ -214,6 +233,9 @@ unsigned char *read_samples(const uint32_t number_of_samples, struct dongle_para
 	rtlsdr_set_freq_correction(dev, dp->ppm_error);
     r = rtlsdr_reset_buffer(dev);
 
+    pthread_t thread_recv;
+    pthread_create(&thread_recv, NULL, receiver, (void*) channel);
+
 
 	/* Reading samples */
 
@@ -224,8 +246,14 @@ unsigned char *read_samples(const uint32_t number_of_samples, struct dongle_para
                           MAXIMAL_BUF_LENGTH);
 
 
+    pthread_join(thread_recv, NULL);
+
+    printf("Hello\n");
+
+
+
     rtlsdr_close(dev);
 
-    return samples;
+    return 0;
 
 }

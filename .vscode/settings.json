@@ -9,6 +9,19 @@
         "array": "c",
         "string": "c",
         "string_view": "c",
-        "inttypes.h": "c"
+        "inttypes.h": "c",
+        "*.tcc": "c",
+        "chrono": "c",
+        "complex": "c",
+        "cmath": "c",
+        "random": "c",
+        "istream": "c",
+        "limits": "c",
+        "numeric": "c",
+        "ostream": "c",
+        "streambuf": "c",
+        "system_error": "c",
+        "tuple": "c",
+        "string.h": "c"
     }
 }
