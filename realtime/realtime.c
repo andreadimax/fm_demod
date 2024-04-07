@@ -5,11 +5,61 @@
 #include <stddef.h>
 #include "chan.h"
 #include <signal.h>
+#include <complex.h>
+#include <math.h>
 
 #define DEFAULT_SAMPLE_RATE		1920000
 #define DEFAULT_BUF_LENGTH		(16 * 16384)
 #define MINIMAL_BUF_LENGTH		512
 #define MAXIMAL_BUF_LENGTH		(256 * 16384)
+
+#define ORDER 39
+#define CHUNK 40
+#define FIRST_DECIMATION_FACTOR 8
+#define SECOND_DECIMATION_FACTOR 5
+#define FREQ_DEVIATION 75000
+
+float fir_coeffs[ORDER] =  {
+    -0.000175388381457631,
+    -0.001081578864783447,
+    -0.001952816940761620,
+    -0.002339542890303031,
+    -0.001441043405376425,
+    0.001347804896207034,
+    0.005616827900957026,
+    0.009446763814526433,
+    0.009829843166274001,
+    0.004146468717566274,
+    -0.007842989084981804,
+    -0.022556389911108012,
+    -0.032759965041076984,
+    -0.029771738254108050,
+    -0.007094214896639929,
+    0.036021911732894665,
+    0.092830235703578734,
+    0.150286158813892540,
+    0.193054813051436985,
+    0.208869679746526316,
+    0.193054813051437013,
+    0.150286158813892540,
+    0.092830235703578762,
+    0.036021911732894679,
+    -0.007094214896639929,
+    -0.029771738254108050,
+    -0.032759965041076977,
+    -0.022556389911108015,
+    -0.007842989084981808,
+    0.004146468717566274,
+    0.009829843166274006,
+    0.009446763814526441,
+    0.005616827900957029,
+    0.001347804896207034,
+    -0.001441043405376424,
+    -0.002339542890303034,
+    -0.001952816940761620,
+    -0.001081578864783446,
+    -0.000175388381457631,
+};
 
 struct dongle_parameters{
     int gain;
@@ -135,7 +185,6 @@ static void rtlsdr_callback(uint8_t *buf, uint32_t len, void* ctx)
 
 		for (int i = 0; i < len; i++)
         {
-            printf("Should print %c\n", buf[i]);
             chan_send(channel, (void *) (uintptr_t) buf[i]);
         }
         		
@@ -145,16 +194,113 @@ static void rtlsdr_callback(uint8_t *buf, uint32_t len, void* ctx)
 	}
 }
 
+static unsigned char initial_counter = 0;
+static unsigned char sample_counter = 0;
+
+static unsigned char i_samples[CHUNK];
+static unsigned char q_samples[CHUNK];
+static float i_output[CHUNK];
+static float q_output[CHUNK];
+
+static float complex first_decimation_output[CHUNK / FIRST_DECIMATION_FACTOR];
+static float demodulated_samples[CHUNK / FIRST_DECIMATION_FACTOR];
+
+
+void process(unsigned char sample)
+{
+	//filling buffer at start
+	while (initial_counter != CHUNK)
+	{
+		// I sample
+		if (initial_counter % 2 == 0)
+		{
+			i_samples[sample_counter] = sample;
+		}
+		// Q sample
+		else
+		{
+			q_samples[sample_counter++] = sample;
+		}
+
+        initial_counter++;
+
+		return;
+		
+	}
+
+    initial_counter = 0;
+
+    /* ----------------- FIR FILTER ----------------- */
+    /* ---------------------------------------------- */
+
+    double acc_real, acc_imag;     // accumulator for sum
+    int n = 0;
+    int k = 0;
+    int i = 0;
+
+
+    // apply the filter to each sample of each signal (I and Q)
+    for (n = 0; n < CHUNK; n++) 
+    {
+        acc_real = 0;
+		acc_imag = 0;
+
+        for ( k = 0; k < ORDER; k++ ) {
+            if(n-k >= 0 && n-k <=(CHUNK-1)){
+                // I signal
+                acc_real += fir_coeffs[k] * i_samples[n-k];
+
+                // Q signal 
+				acc_imag += fir_coeffs[k] * q_samples[n-k];
+            }
+        }
+
+        i_output[n] = acc_real;
+		q_output[n] = acc_imag;
+
+    }
+
+    /* ------------- END FIR FILTER ----------------- */
+    /* ---------------------------------------------- */
+
+	/* ------------- DEMODULATION ------------- */
+    /* ---------------------------------------- */
+
+    /*
+        Decimating of a factor FIRST_DECIMATION_FACTOR
+        so that we pass to sampling frequency DEFAULT_SAMPLE_RATE / FIRST_DECIMATION_FACTOR
+    */
+    for (int i = 0, j = 0; i < CHUNK; j++, i += FIRST_DECIMATION_FACTOR)
+    {
+        first_decimation_output[j] = i_output[i] + I * q_output[i];
+    }
+    
+
+    //Demodulating using polar discrimination factor
+    for (int j = 1; j <= CHUNK / FIRST_DECIMATION_FACTOR; j++)
+    {
+        demodulated_samples[j-1] = cargf(first_decimation_output[j] * conj(first_decimation_output[j-1])) * (((DEFAULT_SAMPLE_RATE)/FIRST_DECIMATION_FACTOR)/(2*M_PI*FREQ_DEVIATION));
+    }
+
+    /* --------- END DEMODULATION --------- */
+    /* ------------------------------------ */
+
+    fwrite(&demodulated_samples[0], 4, 1, stdout);
+
+    //printf("%.6f | ", demodulated_samples[0]);
+
+}
+
+
 void *receiver(void* chan){
 
     void *data;
 
     while (chan_recv((chan_t*) chan, &data) == 0)
     {
-        printf("Received %c\n", (uint8_t) data);
+        //printf("Received %c\n", (uint8_t) data);
+        process((unsigned char) data);
     }
-
-    printf("Receiver ending...\n");
 
 }
 
@@ -170,6 +316,12 @@ int main()
     dp->sync_mode = 0;
     dp->frequency = 91.8e6;
     dp->samp_rate = DEFAULT_SAMPLE_RATE;
+
+	memset(i_samples, 0, CHUNK);
+	memset(q_samples, 0, CHUNK);
+	memset(i_output, 0, sizeof(float) * (CHUNK));
+	memset(q_output, 0, sizeof(float) * (CHUNK));
+    memset(demodulated_samples, 0, sizeof(float) * (CHUNK / FIRST_DECIMATION_FACTOR));
 
     channel = chan_init(0);
 

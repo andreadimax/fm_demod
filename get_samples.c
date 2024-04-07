@@ -112,32 +112,26 @@ static void rtlsdr_callback(uint8_t *buf, uint32_t len, void* ctx)
 
 	if (ctx) {	
 
-		printf("Len %d\n", len);
+		if (firstCall)
+		{
+			usr_buf = (uint8_t *) ctx;
+			firstCall = 0;
+		}	
 
-		// if (firstCall)
-		// {
-		// 	usr_buf = (uint8_t *) ctx;
-		// 	firstCall = 0;
-		// }	
-
-		// memcpy(usr_buf,buf,len);
-		// usr_buf = usr_buf + len * sizeof(uint8_t);
-
-		// bytes_to_read -= len;
-
-		// if (bytes_to_read  == 0)
-		// {
-		// 	rtlsdr_cancel_async(dev);
-		// 	return;
-		// }		
-
-		// for (uint32_t i = 0; i < len; i++)
-		// {
-		// 	printf("%c ", buf[i]);
+        //Copying data
+        // for(;i<len;i++){
+		// 	*(data + i*sizeof(uint8_t)) = *(buf + i*sizeof(uint8_t));
 		// }
+		memcpy(usr_buf,buf,len);
+		usr_buf = usr_buf + len * sizeof(uint8_t);
 
-		// printf("\n");
-		
+		bytes_to_read -= len;
+
+		if (bytes_to_read  == 0)
+		{
+			rtlsdr_cancel_async(dev);
+			return;
+		}		
 
 		return;
         

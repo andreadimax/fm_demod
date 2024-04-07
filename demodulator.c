@@ -30,22 +30,11 @@ int main(){
     dp.gain = 0;
     dp.ppm_error = 0;
     dp.sync_mode = 0;
-    dp.frequency = 91.8e6;
+    dp.frequency = 100.4e6;
     dp.samp_rate = DEFAULT_SAMPLE_RATE;
 
     //read samples from dongle
     samples = read_samples(NUM_SAMPLES, &dp);
-
-    fclose(samples_saved);
-    free(demodulated_samples);
-    free(deEmphased_samples);
-    free(deEmphased_samples2);
-    free(decimated_samples);
-    free(samples);
-
-    printf("All ok!\n");
-
-    return 0;
 
     float complex *complex_samples = (float complex *) malloc(NUM_SAMPLES * sizeof(float complex));
 
@@ -109,6 +98,7 @@ int main(){
     //saving
     for(i=0; i<((NUM_SAMPLES)/(DECIMATION_FACTOR*5));  i++){
         decimated_samples[i] =  (float) deEmphased_samples2[i];
+        printf("%.6f | ", decimated_samples[i]);
         fwrite(&decimated_samples[i], 4 , 1,  samples_saved);
     }
 

@@ -22,6 +22,7 @@
         "streambuf": "c",
         "system_error": "c",
         "tuple": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "filters.h": "c"
     }
 }
